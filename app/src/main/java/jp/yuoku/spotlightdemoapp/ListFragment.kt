@@ -6,13 +6,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
-import android.widget.*
+import android.widget.Button
+import android.widget.FrameLayout
+import androidx.annotation.StringRes
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProviders
-import com.takusemba.spotlight.OnSpotlightListener
-import com.takusemba.spotlight.OnTargetListener
 import com.takusemba.spotlight.Spotlight
+import com.takusemba.spotlight.Target
+import com.takusemba.spotlight.shape.RoundedRectangle
+import kotlinx.android.synthetic.main.layout_coachmark.view.*
+import kotlinx.android.synthetic.main.list_fragment.*
+
 
 class ListFragment : Fragment() {
 
@@ -30,7 +34,7 @@ class ListFragment : Fragment() {
 
         val startButton = view.findViewById<Button>(R.id.start_button)
         startButton?.setOnClickListener {
-            showSpotlight(inflater, container, "評価をしてください")
+            showSpotlight(R.string.spotlight_message)
         }
         return view
     }
@@ -41,72 +45,60 @@ class ListFragment : Fragment() {
         // TODO: Use the ViewModel
     }
 
-    private fun showSpotlight(inflater: LayoutInflater, container: ViewGroup?, text: String) {
+    private fun showSpotlight(@StringRes spotlightMessageId: Int) {
         Log.d("DEBUG", "showSpotlight")
 
-        val activity = this.activity ?: return
-        val context = this.context ?: return
+        val coachmarkRoot = FrameLayout(requireContext())
+        val coachMarkView = layoutInflater.inflate(R.layout.layout_coachmark, coachmarkRoot)
+        coachMarkView.spotlight_text.setText(spotlightMessageId)
 
-        val coachmarkRoot = FrameLayout(context)
-        val coachmarkView = layoutInflater.inflate(R.layout.layout_coachmark, coachmarkRoot)
-
-        val target = makeSpotlightTarget(activity, coachmarkView, text)
-        val spotlight = makeSpotlight(activity, target)
+        val target = makeSpotlightTarget(ratingBar, coachMarkView)
+        val spotlight = makeSpotlight(target)
 
         // 閉じるボタンの処理登録
-        val closeButton = coachmarkView.findViewById<Button>(R.id.close_spotlight)
-        closeButton.setOnClickListener { spotlight.finish() }
+        coachMarkView.close_spotlight.setOnClickListener { spotlight.finish() }
+
+        // coachMarkViewのボタン以外の部分タップでも閉じれるようにする場合、 xmlのandroid:clickable="true" android:focusable="true"　を消す必要がある
+        // その場合は、スポットライトを当てている部分のタップが有効になる（スポットライト表示中にratingViewを操作できてしまう）
+//        coachMarkView.setOnTouchListener { v, event ->
+//            Log.d("TEST", "setOnTouchListener")
+//            spotlight.finish()
+//            false
+//        }
 
         // スポットライト開始
         spotlight.start()
     }
 
-    private fun makeSpotlightTarget(activity: FragmentActivity, coachmarkView: View, text: String): com.takusemba.spotlight.Target {
-        Log.d("DEBUG", "makeSpotlightTarget")
+    /**
+     * SpotlightTargetを生成
+     *
+     * @param[targetView] スポットライトを当てる対象のview
+     * @param[coachMarkView] スポットライト用のview
+     * @return SpotlightTarget
+     */
+    private fun makeSpotlightTarget(targetView: View, coachMarkView: View): Target {
 
-        val targetRatingBar = activity.findViewById<View>(R.id.ratingBar)
-
-        return com.takusemba.spotlight.Target.Builder()
-            // スポットライトを当てるviewを設定
-            .setAnchor(targetRatingBar)
-            .setShape(
-                com.takusemba.spotlight.shape.RoundedRectangle(
-                    targetRatingBar.height.toFloat(),
-                    targetRatingBar.width.toFloat(),
-                    16.toFloat()
-                )
-            )
-            .setOverlay(coachmarkView)
-            .setOnTargetListener(object : OnTargetListener {
-                override fun onStarted() {
-                    Log.d("DEBUG", "Target onStarted")
-                    activity.findViewById<TextView>(R.id.custom_text).text = text
-                }
-
-                override fun onEnded() {
-                    Log.d("DEBUG", "Target onEnded")
-                }
-            })
+        return Target.Builder()
+            .setAnchor(targetView)
+            .setShape(RoundedRectangle(targetView.height.toFloat(), targetView.width.toFloat(), 16.toFloat()))
+            .setOverlay(coachMarkView)
             .build()
     }
 
-    private fun makeSpotlight(activity: FragmentActivity, target: com.takusemba.spotlight.Target): Spotlight {
-        Log.d("DEBUG", "makeSpotlight")
+    /**
+     * Spotlightを生成
+     *
+     * @param[target] スポットライトを当てる対象
+     * @return Spotlight
+     */
+    private fun makeSpotlight(target: Target): Spotlight {
 
-        return Spotlight.Builder(activity)
+        return Spotlight.Builder(requireActivity())
             .setTargets(target)
             .setBackgroundColor(R.color.spotlight)
             .setDuration(1000L)
             .setAnimation(DecelerateInterpolator(2f))
-            .setOnSpotlightListener(object : OnSpotlightListener {
-                override fun onStarted() {
-                    Log.d("DEBUG", "Spotlight onStarted")
-                }
-
-                override fun onEnded() {
-                    Log.d("DEBUG", "Spotlight onEnded")
-                }
-            })
             .build()
     }
 }
